@@ -7,6 +7,7 @@ from app.database import Base, SessionLocal, engine
 from app.models import Product
 from app.routers import dashboard, messages, orders, products, shipments, system, tasks
 from app.seed import run_seed
+from app.routers import chat, ai_tasks, alerts
 
 
 @asynccontextmanager
@@ -40,3 +41,6 @@ app.include_router(shipments.router)
 app.include_router(tasks.router)
 app.include_router(dashboard.router)
 app.include_router(messages.router)
+app.include_router(chat.router)
+app.include_router(ai_tasks.router)
+app.include_router(alerts.router)
