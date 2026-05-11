@@ -72,6 +72,12 @@ def get_shipment_by_order(db: Session, order_id: int) -> Shipment | None:
     return db.query(Shipment).filter(Shipment.order_id == order_id).first()
 
 
+def get_order_with_shipment(db: Session, order_id: int) -> tuple[Order | None, Shipment | None]:
+    order = get_order(db, order_id)
+    shipment = get_shipment_by_order(db, order_id) if order else None
+    return order, shipment
+
+
 # ---------------------------------------------------------------------------
 # Tasks
 # ---------------------------------------------------------------------------
