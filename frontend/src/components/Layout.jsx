@@ -1,33 +1,41 @@
 import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { sendAlert } from '../api/client.js';
+import { NavLink, Outlet } from 'react-router-dom';
+import { sendAlertResult } from '../api/client.js';
 
-/* ── Toast context ── */
 export const ToastContext = createContext(null);
 
 export function useToast() {
   return useContext(ToastContext);
 }
 
-/* ── DashNotes context ── */
 export const DashNoteContext = createContext(null);
 
 export function useDashNote() {
   return useContext(DashNoteContext);
 }
 
-/* ── MailModal context ── */
 export const MailModalContext = createContext(null);
 
 export function useMailModal() {
   return useContext(MailModalContext);
 }
 
-/* ── NavBadge context ── */
 export const NavBadgeContext = createContext({ late: 0, crit: 0, pend: 0 });
 
 export function useNavBadge() {
   return useContext(NavBadgeContext);
+}
+
+const TOAST_PREFIX = {
+  success: 'Başarılı:',
+  warn: 'Uyarı:',
+  error: 'Hata:',
+  info: 'Bilgi:',
+};
+
+function prefixedMessage(msg, type) {
+  const prefix = TOAST_PREFIX[type] || TOAST_PREFIX.info;
+  return msg.startsWith(prefix) ? msg : `${prefix} ${msg}`;
 }
 
 function Clock() {
@@ -39,12 +47,24 @@ function Clock() {
   return <span className="clock">{t}</span>;
 }
 
-function ToastHub({ toasts }) {
+function ToastHub({ toasts, onDismiss }) {
   return (
-    <div className="toast-wrap">
+    <div className="toast-wrap" role="status" aria-live="polite" aria-relevant="additions text">
       {toasts.map(t => (
-        <div key={t.id} className={`toast ${t.type}`}>
-          <span>{t.msg}</span>
+        <div key={t.id} className={`toast ${t.type}`} role={t.type === 'error' ? 'alert' : 'status'}>
+          <span>{prefixedMessage(t.msg, t.type)}</span>
+          {t.action && (
+            <button
+              className="toast-action"
+              type="button"
+              onClick={() => {
+                t.action.onClick();
+                onDismiss(t.id);
+              }}
+            >
+              {t.action.label}
+            </button>
+          )}
         </div>
       ))}
     </div>
@@ -56,54 +76,125 @@ function MailModalEl({ state, onClose, onSend }) {
   const [cc, setCc] = useState('satin.alma@smartflow.com');
   const [subj, setSubj] = useState('');
   const [body, setBody] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  function requestClose() {
+    if (dirty && !window.confirm('Taslakta kaydedilmemiş değişiklik var. Kapatılsın mı?')) return;
+    onClose();
+  }
 
   useEffect(() => {
     if (!state) return;
     setTo(state.to || '');
-    setSubj(state.subject || 'ACİL: Kritik Stok Uyarısı — Acil Temin Talebi');
+    setCc(state.cc || 'satin.alma@smartflow.com');
+    setSubj(state.subject || 'ACİL: Kritik Stok Uyarısı - Acil Temin Talebi');
     setBody(state.body || '');
+    setDirty(false);
+    setErrors({});
   }, [state]);
+
+  useEffect(() => {
+    if (!state) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') requestClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
 
   if (!state) return null;
 
+  function validateDraft() {
+    const nextErrors = {};
+    const emailLike = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!to.trim()) nextErrors.to = 'Alıcı e-postası zorunlu.';
+    else if (!emailLike.test(to.trim())) nextErrors.to = 'Geçerli bir e-posta girin.';
+    if (cc.trim() && !emailLike.test(cc.trim())) nextErrors.cc = 'CC için geçerli bir e-posta girin.';
+    if (!subj.trim()) nextErrors.subj = 'Konu zorunlu.';
+    if (!body.trim()) nextErrors.body = 'Mesaj gövdesi zorunlu.';
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }
+
+  function handleSubmit(action) {
+    if (!validateDraft()) return;
+    onSend({
+      to: to.trim(),
+      cc: cc.trim(),
+      subject: subj.trim(),
+      body,
+      productName: state.productName,
+    }, action);
+  }
+
   return (
-    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal">
+    <div className="overlay" onClick={e => { if (e.target === e.currentTarget) requestClose(); }}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="supplier-mail-title">
         <div className="mhdr">
-          <div className="mtitle">
+          <div className="mtitle" id="supplier-mail-title">
             ✉️ Tedarikçi Mail Taslağı{' '}
             <span className="chip chip-purple" style={{ marginLeft: 6 }}>draft_supplier_email</span>
           </div>
-          <button className="mclose" onClick={onClose}>×</button>
+          <button className="mclose" type="button" aria-label="Mail taslağını kapat" onClick={requestClose}>×</button>
         </div>
         <div className="mbody">
           <div className="field">
             <label>Ürün / Konu</label>
             <div style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--mono)', marginBottom: 4 }}>
-              {state.productName || '—'}
+              {state.productName || '-'}
             </div>
           </div>
           <div className="field">
             <label>Alıcı</label>
-            <input value={to} onChange={e => setTo(e.target.value)} type="email" />
+            <input
+              value={to}
+              onChange={e => { setTo(e.target.value); setDirty(true); }}
+              type="email"
+              required
+              aria-invalid={Boolean(errors.to)}
+              aria-describedby={errors.to ? 'mail-to-error' : undefined}
+            />
+            {errors.to && <div className="field-error" id="mail-to-error">{errors.to}</div>}
           </div>
           <div className="field">
             <label>CC</label>
-            <input value={cc} onChange={e => setCc(e.target.value)} type="email" />
+            <input
+              value={cc}
+              onChange={e => { setCc(e.target.value); setDirty(true); }}
+              type="email"
+              aria-invalid={Boolean(errors.cc)}
+              aria-describedby={errors.cc ? 'mail-cc-error' : undefined}
+            />
+            {errors.cc && <div className="field-error" id="mail-cc-error">{errors.cc}</div>}
           </div>
           <div className="field">
             <label>Konu</label>
-            <input value={subj} onChange={e => setSubj(e.target.value)} />
+            <input
+              value={subj}
+              onChange={e => { setSubj(e.target.value); setDirty(true); }}
+              required
+              aria-invalid={Boolean(errors.subj)}
+              aria-describedby={errors.subj ? 'mail-subj-error' : undefined}
+            />
+            {errors.subj && <div className="field-error" id="mail-subj-error">{errors.subj}</div>}
           </div>
           <div className="field">
             <label>Mesaj</label>
-            <textarea value={body} onChange={e => setBody(e.target.value)} />
+            <textarea
+              value={body}
+              onChange={e => { setBody(e.target.value); setDirty(true); }}
+              required
+              aria-invalid={Boolean(errors.body)}
+              aria-describedby={errors.body ? 'mail-body-error' : undefined}
+            />
+            {errors.body && <div className="field-error" id="mail-body-error">{errors.body}</div>}
           </div>
         </div>
         <div className="mftr">
-          <button className="btn btn-ghost" onClick={onClose}>İptal</button>
-          <button className="btn btn-ghost" onClick={() => onSend(to, 'copy')}>📋 Kopyala</button>
-          <button className="btn btn-primary" onClick={() => onSend(to, 'send')}>📤 Gönder</button>
+          <button className="btn btn-ghost" type="button" onClick={requestClose}>İptal</button>
+          <button className="btn btn-ghost" type="button" onClick={() => handleSubmit('copy')}>📋 Kopyala</button>
+          <button className="btn btn-primary" type="button" onClick={() => handleSubmit('send')}>Taslağı Hazırla</button>
         </div>
       </div>
     </div>
@@ -115,45 +206,65 @@ export default function Layout() {
   const [dashNotes, setDashNotes] = useState([]);
   const [mailState, setMailState] = useState(null);
   const [navBadge, setNavBadge] = useState({ late: 0, crit: 0, pend: 0 });
-  const [summaryForAlert, setSummaryForAlert] = useState(null);
-  const navigate = useNavigate();
 
-  const showToast = useCallback((msg, type = 'info') => {
-    const id = Date.now() + Math.random();
-    setToasts(prev => [...prev, { id, msg, type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  const dismissToast = useCallback((id) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
+
+  const showToast = useCallback((msg, type = 'info', options = {}) => {
+    const id = Date.now() + Math.random();
+    setToasts(prev => [...prev, { id, msg, type, action: options.action }]);
+    if (!options.persist) setTimeout(() => dismissToast(id), options.duration || 3500);
+    return id;
+  }, [dismissToast]);
 
   const pushDashNote = useCallback((msg) => {
     const id = Date.now() + Math.random();
     setDashNotes(prev => [{ id, msg }, ...prev]);
   }, []);
 
-  const openMailModal = useCallback((productName, to, subject, body) => {
-    setMailState({ productName, to, subject, body });
+  const openMailModal = useCallback((productName, to, subject, body, cc) => {
+    setMailState({ productName, to, subject, body, cc });
   }, []);
 
   const closeMailModal = useCallback(() => setMailState(null), []);
 
-  const handleMailSend = useCallback((to, action) => {
-    closeMailModal();
+  const formatDraft = useCallback((draft) => (
+    `To: ${draft.to}\nCC: ${draft.cc || '-'}\nSubject: ${draft.subject}\n\n${draft.body}`
+  ), []);
+
+  const handleMailSend = useCallback(async (draft, action) => {
+    const draftText = formatDraft(draft);
     if (action === 'copy') {
-      showToast('📋 Taslak kopyalandı', 'info');
-    } else {
-      showToast(`📤 Mail gönderildi → ${to}`, 'success');
-      pushDashNote(`✉️ Tedarikçi mail taslağı gönderildi → ${to}`);
+      try {
+        await navigator.clipboard.writeText(draftText);
+        closeMailModal();
+        showToast('Taslak panoya kopyalandı', 'success');
+      } catch {
+        showToast('Taslak panoya kopyalanamadı. Tarayıcı iznini kontrol edin.', 'error');
+      }
+      return;
     }
-  }, [closeMailModal, showToast, pushDashNote]);
+
+    closeMailModal();
+    showToast(`Mail taslağı hazırlandı -> ${draft.to}`, 'success');
+    pushDashNote(`Tedarikçi mail taslağı hazırlandı -> ${draft.to}`);
+  }, [closeMailModal, formatDraft, showToast, pushDashNote]);
 
   const handleManagerAlert = useCallback(async () => {
-    showToast('🔔 POST /api/alerts/send…', 'info');
+    showToast('Yönetici uyarısı gönderiliyor', 'info');
     const payload = {
-      subject: 'SmartFlow AI — Yönetici Uyarısı',
+      subject: 'SmartFlow AI - Yönetici Uyarısı',
       body: `Acil durum bildirimi:\n- Gecikmiş sipariş: ${navBadge.late}\n- Kritik stok: ${navBadge.crit}\n- Onay bekleyen: ${navBadge.pend}`,
     };
-    const res = await sendAlert(payload);
-    showToast(res ? '✅ Uyarı gönderildi' : '✅ Uyarı gönderildi (Demo)', 'success');
-    pushDashNote('📧 Yönetici uyarısı gönderildi — POST /api/alerts/send');
+    const res = await sendAlertResult(payload);
+    if (res.ok) {
+      showToast('Yönetici uyarısı gönderildi', 'success');
+      pushDashNote('Yönetici uyarısı gönderildi - POST /api/alerts/send');
+    } else {
+      showToast('Yönetici uyarısı gerçek servise ulaşamadı. Demo/fallback modunu kontrol edin.', 'warn');
+      pushDashNote('Yönetici uyarısı gönderilemedi - servis bağlantısı kontrol edilmeli');
+    }
   }, [navBadge, showToast, pushDashNote]);
 
   return (
@@ -162,8 +273,7 @@ export default function Layout() {
         <MailModalContext.Provider value={openMailModal}>
           <NavBadgeContext.Provider value={{ navBadge, setNavBadge }}>
             <div className="app">
-              {/* Sidebar */}
-              <aside className="sidebar">
+              <aside className="sidebar" aria-label="Ana navigasyon">
                 <div className="logo">
                   <div className="logo-mark">SmartFlow AI</div>
                   <div className="logo-name">Yönetici Paneli</div>
@@ -177,13 +287,13 @@ export default function Layout() {
 
                 <span className="nav-section">Operasyon</span>
                 <NavLink to="/orders" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-                  📦 Siparişler <span className="nav-badge red">{navBadge.late || '—'}</span>
+                  📦 Siparişler <span className="nav-badge red">{navBadge.late || '-'}</span>
                 </NavLink>
                 <NavLink to="/shipments" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   🚚 Kargolar
                 </NavLink>
                 <NavLink to="/products" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-                  🗃️ Ürünler <span className="nav-badge orange">{navBadge.crit || '—'}</span>
+                  🗃️ Ürünler <span className="nav-badge orange">{navBadge.crit || '-'}</span>
                 </NavLink>
                 <NavLink to="/tasks" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   📋 Görevler
@@ -191,11 +301,15 @@ export default function Layout() {
 
                 <span className="nav-section">Aksiyonlar</span>
                 <NavLink to="/pending" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
-                  ⏳ Onay Bekleyenler <span className="nav-badge">{navBadge.pend || '—'}</span>
+                  ⏳ Onay Bekleyenler <span className="nav-badge">{navBadge.pend || '-'}</span>
                 </NavLink>
-                <div className="nav-item" onClick={() => openMailModal('', '', 'ACİL: Kritik Stok Uyarısı — Acil Temin Talebi', '')}>
+                <button
+                  type="button"
+                  className="nav-item nav-button"
+                  onClick={() => openMailModal('', '', 'ACİL: Kritik Stok Uyarısı - Acil Temin Talebi', '')}
+                >
                   ✉️ Tedarikçi Mail
-                </div>
+                </button>
                 <NavLink to="/chat" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                   💬 Müşteri Chat
                 </NavLink>
@@ -205,13 +319,12 @@ export default function Layout() {
                     <div className="avatar">AY</div>
                     <div>
                       <div className="user-name">Ahmet Yılmaz</div>
-                      <div className="user-role">ADMIN</div>
+                      <div className="user-role">Yönetici</div>
                     </div>
                   </div>
                 </div>
               </aside>
 
-              {/* Main */}
               <div className="main">
                 <div className="topbar">
                   <div className="topbar-left">
@@ -222,10 +335,14 @@ export default function Layout() {
                   </div>
                   <div className="topbar-right">
                     <Clock />
-                    <button className="btn btn-purple btn-sm" onClick={() => openMailModal('', '', 'ACİL: Kritik Stok Uyarısı', '')}>
+                    <button
+                      className="btn btn-purple btn-sm"
+                      aria-label="Tedarikçi mail taslağı aç"
+                      onClick={() => openMailModal('', '', 'ACİL: Kritik Stok Uyarısı', '')}
+                    >
                       ✉️ Tedarikçi Mail
                     </button>
-                    <button className="btn btn-danger" onClick={handleManagerAlert}>
+                    <button className="btn btn-danger" aria-label="Yönetici uyarısı gönder" onClick={handleManagerAlert}>
                       🔔 Yönetici Uyarısı Gönder
                     </button>
                   </div>
@@ -235,11 +352,8 @@ export default function Layout() {
               </div>
             </div>
 
-            {/* Mail modal */}
             <MailModalEl state={mailState} onClose={closeMailModal} onSend={handleMailSend} />
-
-            {/* Toast hub */}
-            <ToastHub toasts={toasts} />
+            <ToastHub toasts={toasts} onDismiss={dismissToast} />
           </NavBadgeContext.Provider>
         </MailModalContext.Provider>
       </DashNoteContext.Provider>
