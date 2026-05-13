@@ -9,10 +9,11 @@
 <style>
 :root {
   --bg:#0d0f14; --panel:#13161d; --border:#1f2330; --border2:#2a3047;
-  --text:#e2e8f0; --muted:#64748b;
-  --accent:#3b82f6; --green:#22c55e; --yellow:#eab308;
-  --red:#ef4444; --orange:#f97316; --purple:#a855f7;
-  --blue:#3b82f6; --cyan:#06b6d4;
+  --text:#e2e8f0; --muted:#94a3b8; --muted-dim:#64748b;
+  --accent:#2563eb; --accent-bg:#2563eb; --accent-hover:#1d4ed8; --accent-text:#60a5fa;
+  --green:#22c55e; --yellow:#eab308;
+  --red:#f87171; --orange:#fb923c; --purple:#c084fc;
+  --blue:#60a5fa; --cyan:#22d3ee;
   --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -75,7 +76,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 
 /* ── Buttons ── */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;border:none;font-family:var(--sans)}
-.btn-primary{background:var(--accent);color:#fff} .btn-primary:hover{background:#2563eb}
+.btn-primary{background:var(--accent-bg);color:#fff} .btn-primary:hover{background:var(--accent-hover)}
 .btn-danger{background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25)} .btn-danger:hover{background:rgba(239,68,68,.22)}
 .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)} .btn-ghost:hover{color:var(--text);border-color:var(--border2);background:rgba(255,255,255,.03)}
 .btn-purple{background:rgba(168,85,247,.12);color:var(--purple);border:1px solid rgba(168,85,247,.25)} .btn-purple:hover{background:rgba(168,85,247,.22)}
@@ -111,8 +112,8 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 .scnt{font-family:var(--mono);font-size:10px;background:var(--border);color:var(--muted);padding:2px 7px;border-radius:10px}
 
 /* ── Table panel ── */
-.table-panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.table-panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow-x:auto;overflow-y:hidden}
+table{width:100%;min-width:820px;border-collapse:collapse;font-size:12.5px}
 thead th{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:10px 15px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;font-weight:500}
 tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 tbody tr:last-child{border-bottom:none}
@@ -156,7 +157,7 @@ tbody td{padding:10px 15px;vertical-align:middle}
 .sbw{display:flex;align-items:center;gap:8px;margin-top:5px}
 .sb{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden}
 .sbf{height:100%;border-radius:2px;transition:width .6s ease}
-.sbp{font-family:var(--mono);font-size:10px;color:var(--muted);width:28px;text-align:right}
+.sbp{font-family:var(--mono);font-size:10px;color:var(--muted);min-width:76px;text-align:right}
 
 /* ── Pending actions ── */
 .action-panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}
@@ -173,7 +174,7 @@ tbody td{padding:10px 15px;vertical-align:middle}
 .aihdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}
 .ailbl{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
 .chip{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:1px;padding:2px 7px;border-radius:4px}
-.chip-blue{background:rgba(59,130,246,.12);color:var(--accent);border:1px solid rgba(59,130,246,.2)}
+.chip-blue{background:rgba(59,130,246,.12);color:var(--accent-text);border:1px solid rgba(96,165,250,.25)}
 .chip-purple{background:rgba(168,85,247,.1);color:var(--purple);border:1px solid rgba(168,85,247,.2)}
 .chip-green{background:rgba(34,197,94,.1);color:var(--green);border:1px solid rgba(34,197,94,.2)}
 .brief-body{font-size:13px;line-height:1.75;color:#94a3b8;border-left:2px solid var(--accent);padding-left:14px;min-height:54px}
@@ -240,6 +241,24 @@ tbody td{padding:10px 15px;vertical-align:middle}
 
 @media(max-width:1500px){.stat-grid{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:1100px){.stat-grid{grid-template-columns:repeat(3,1fr)};.two-col{grid-template-columns:1fr}}
+@media(max-width:768px){
+  .app{height:auto;min-height:100vh;flex-direction:column}
+  .sidebar{position:static;width:100%;max-height:none;padding:14px 0}
+  .main{margin-left:0;overflow:visible}
+  .topbar{padding:12px 16px;align-items:flex-start;gap:10px;flex-wrap:wrap}
+  .topbar-right{width:100%;justify-content:flex-start;flex-wrap:wrap}
+  .page{padding:16px}
+  .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .shdr{align-items:flex-start;gap:8px;flex-direction:column}
+  .filter-bar{width:100%;justify-content:flex-start;flex-wrap:wrap}
+  .filter-bar select,.filter-bar input{width:100%;min-width:0}
+  .act{align-items:flex-start;flex-wrap:wrap}
+  .act-r{width:100%;justify-content:flex-start;flex-wrap:wrap}
+  .aihdr,.bftr{align-items:flex-start;gap:8px;flex-direction:column}
+  .toast-wrap{right:12px;left:12px;bottom:12px}
+  .toast{max-width:none}
+}
+@media(max-width:520px){.stat-grid{grid-template-columns:1fr}.btn{justify-content:center;white-space:normal}.mftr{flex-direction:column-reverse}}
 </style>
 </head>
 <body>
@@ -572,10 +591,10 @@ tbody td{padding:10px 15px;vertical-align:middle}
 
 <!-- ══════ MAİL MODAL ══════ -->
 <div class="overlay" id="mailModal">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="mailTitle">
     <div class="mhdr">
-      <div class="mtitle">✉️ Tedarikçi Mail Taslağı <span class="chip chip-purple" style="margin-left:6px">draft_supplier_email</span></div>
-      <button class="mclose" onclick="closeMailModal()">×</button>
+      <div class="mtitle" id="mailTitle">✉️ Tedarikçi Mail Taslağı <span class="chip chip-purple" style="margin-left:6px">draft_supplier_email</span></div>
+      <button class="mclose" aria-label="Mail taslağını kapat" onclick="closeMailModal()">×</button>
     </div>
     <div class="mbody">
       <div class="field"><label>Ürün / Konu</label><div id="mailProd" style="font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:4px">—</div></div>
@@ -599,13 +618,13 @@ Satın Alma Departmanı — SmartFlow AI</textarea>
     </div>
     <div class="mftr">
       <button class="btn btn-ghost" onclick="closeMailModal()">İptal</button>
-      <button class="btn btn-ghost" onclick="showToast('📋 Taslak kopyalandı','info')">📋 Kopyala</button>
-      <button class="btn btn-primary" onclick="sendMail()">📤 Gönder</button>
+      <button class="btn btn-ghost" onclick="copyMailDraft()">📋 Kopyala</button>
+      <button class="btn btn-primary" onclick="sendMail()">Taslağı Hazırla</button>
     </div>
   </div>
 </div>
 
-<div class="toast-wrap" id="toastWrap"></div>
+<div class="toast-wrap" id="toastWrap" role="status" aria-live="polite" aria-relevant="additions text"></div>
 
 <script>
 /* ════════════════════════════════
@@ -1041,7 +1060,11 @@ function rejectTask(id){
 }
 
 function approveAll(){
-  ST.tasks.filter(isPendingApproval).forEach(t=>t.status='Tamamlandı');
+  const pending=ST.tasks.filter(isPendingApproval);
+  if(!pending.length) return;
+  const preview=pending.slice(0,3).map(t=>`#${t.task_id} ${t.description}`).join('\n');
+  if(!confirm(`${pending.length} bekleyen aksiyon tamamlandı yapılacak.\n\n${preview}\n\nDevam edilsin mi?`)) return;
+  pending.forEach(t=>t.status='Tamamlandı');
   ST.summary.pending_tasks=0;
   renderSummary();
   renderPendingWidgets();
@@ -1099,7 +1122,7 @@ window.pushDashNote=pushDashNote;
 /* ════════ MANAGER ALERT — POST /api/alerts/send ════════ */
 async function sendManagerAlert(e){
   const btn=e.currentTarget; btn.disabled=true;
-  showToast('🔔 POST /api/alerts/send…','info');
+  showToast('Yönetici uyarısı gönderiliyor','info');
   const delayed = ST.orders.filter(o=>o.cargo_status==='Gecikmiş').length;
   const critical = ST.products.filter(p=>p.stock_count<=p.critical_threshold).length;
   const pending = ST.tasks.filter(isPendingApproval).length;
@@ -1108,8 +1131,13 @@ async function sendManagerAlert(e){
     body:`Acil durum bildirimi:\n- Gecikmiş sipariş: ${delayed}\n- Kritik stok: ${critical}\n- Onay bekleyen: ${pending}`
   });
   setTimeout(()=>{
-    showToast(res&&res.sent?'✅ Uyarı gönderildi — Resend API':'✅ Uyarı gönderildi (Demo)','success');
-    pushDashNote('📧 Yönetici uyarısı gönderildi — POST /api/alerts/send');
+    if(res){
+      showToast('Yönetici uyarısı gönderildi - Resend API','success');
+      pushDashNote('Yönetici uyarısı gönderildi - POST /api/alerts/send');
+    }else{
+      showToast('Yönetici uyarısı gerçek servise ulaşamadı. Demo/fallback modunu kontrol edin.','warn');
+      pushDashNote('Yönetici uyarısı gönderilemedi - servis bağlantısı kontrol edilmeli');
+    }
   },res?0:600);
   btn.disabled=false;
 }
@@ -1133,18 +1161,47 @@ function openMailFor(pid,name,email,stock,min){
   document.getElementById('mailModal').classList.add('open');
 }
 function closeMailModal(){document.getElementById('mailModal').classList.remove('open')}
+function mailDraftText(){
+  const to=document.getElementById('mailTo').value;
+  const cc=document.getElementById('mailCc').value;
+  const subject=document.getElementById('mailSubj').value;
+  const body=document.getElementById('mailBody').value;
+  return `To: ${to}\nCC: ${cc||'-'}\nSubject: ${subject}\n\n${body}`;
+}
+function validateMailDraft(){
+  const to=document.getElementById('mailTo').value.trim();
+  const subject=document.getElementById('mailSubj').value.trim();
+  const body=document.getElementById('mailBody').value.trim();
+  const emailLike=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if(!to || !emailLike.test(to)){showToast('Geçerli bir alıcı e-postası girin','error');return false;}
+  if(!subject){showToast('Konu zorunlu','error');return false;}
+  if(!body){showToast('Mesaj gövdesi zorunlu','error');return false;}
+  return true;
+}
+async function copyMailDraft(){
+  if(!validateMailDraft()) return;
+  try{
+    await navigator.clipboard.writeText(mailDraftText());
+    showToast('Taslak panoya kopyalandı','success');
+  }catch{
+    showToast('Taslak panoya kopyalanamadı. Tarayıcı iznini kontrol edin.','error');
+  }
+}
 function sendMail(){
+  if(!validateMailDraft()) return;
   const to=document.getElementById('mailTo').value;
   closeMailModal();
-  showToast(`📤 Mail gönderildi → ${to}`,'success');
-  pushDashNote(`✉️ Tedarikçi mail taslağı gönderildi → ${to}`);
+  showToast(`Mail taslağı hazırlandı -> ${to}`,'success');
+  pushDashNote(`Tedarikçi mail taslağı hazırlandı -> ${to}`);
 }
 
 /* ════════ TOAST ════════ */
 function showToast(msg,type='info'){
   const w=document.getElementById('toastWrap');
   const t=document.createElement('div');
-  t.className=`toast ${type}`;t.innerHTML=`<span>${msg}</span>`;
+  const prefix={success:'Başarılı:',warn:'Uyarı:',error:'Hata:',info:'Bilgi:'}[type]||'Bilgi:';
+  t.className=`toast ${type}`;t.setAttribute(type==='error'?'role':'aria-live',type==='error'?'alert':'polite');
+  t.innerHTML=`<span>${msg.startsWith(prefix)?msg:`${prefix} ${msg}`}</span>`;
   w.appendChild(t);
   setTimeout(()=>{t.style.cssText='opacity:0;transform:translateX(12px);transition:all .25s';setTimeout(()=>t.remove(),300)},3500);
 }

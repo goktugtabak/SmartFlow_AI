@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import './ChatPage.css';
-import { sendChat, getMessages } from '../api/client.js';
-import { useToast } from '../components/Layout.jsx';
+import { sendChatResult, getMessagesResult } from '../api/client.js';
+import { useToast, useDashNote } from '../components/Layout.jsx';
 
 const QUICK = [
   '142 numaralı siparişim nerede?',
@@ -11,11 +11,19 @@ const QUICK = [
   '128 numaralı sipariş ne zaman teslim?',
 ];
 
+const INTENT_LABELS = {
+  ORDER_STATUS: 'Sipariş durumu',
+  STOCK_CHECK: 'Stok kontrolü',
+  STOCK_ALERT: 'Stok uyarısı',
+  DAILY_SUMMARY: 'Günlük özet',
+  ERROR: 'Hata',
+};
+
 function TypingIndicator() {
   return (
     <div className="typing-row">
       <div className="msg-avatar ai">AI</div>
-      <div className="typing-bubble">
+      <div className="typing-bubble" aria-label="AI yanıt hazırlıyor">
         <span className="dot" />
         <span className="dot" />
         <span className="dot" />
@@ -29,8 +37,10 @@ export default function ChatPage() {
   const [pending, setPending] = useState(false);
   const [input, setInput] = useState('');
   const [lastIntent, setLastIntent] = useState(null);
+  const [lastFailedMessage, setLastFailedMessage] = useState('');
   const bottomRef = useRef(null);
   const showToast = useToast();
+  const { pushDashNote } = useDashNote();
 
   useEffect(() => {
     loadHistory();
@@ -41,7 +51,8 @@ export default function ChatPage() {
   }, [messages, pending]);
 
   async function loadHistory() {
-    const data = await getMessages(20);
+    const result = await getMessagesResult(20);
+    const data = result.ok ? result.data : null;
     if (!data || data.length === 0) return;
     const expanded = [];
     for (const m of [...data].reverse()) {
@@ -53,20 +64,24 @@ export default function ChatPage() {
     setMessages(expanded);
   }
 
-  async function send(text) {
+  async function send(text, options = {}) {
     const msg = text || input.trim();
     if (!msg || pending) return;
     setInput('');
+    setLastFailedMessage('');
 
-    setMessages(prev => [...prev, {
-      id: Date.now() + '_u',
-      role: 'user',
-      text: msg,
-      ts: new Date().toISOString(),
-    }]);
+    if (!options.retry) {
+      setMessages(prev => [...prev, {
+        id: Date.now() + '_u',
+        role: 'user',
+        text: msg,
+        ts: new Date().toISOString(),
+      }]);
+    }
 
     setPending(true);
-    const res = await sendChat(msg);
+    const result = await sendChatResult(msg);
+    const res = result.ok ? result.data : null;
     setPending(false);
 
     if (res) {
@@ -81,17 +96,22 @@ export default function ChatPage() {
         ts: new Date().toISOString(),
       }]);
       if (res.dashboard_note) {
-        showToast(`🔔 ${res.dashboard_note}`, 'info');
+        showToast(res.dashboard_note, 'info');
+        pushDashNote(res.dashboard_note);
       }
     } else {
+      setLastFailedMessage(msg);
       setMessages(prev => [...prev, {
         id: Date.now() + '_err',
         role: 'ai',
-        text: 'Bağlantı hatası. Lütfen tekrar deneyin.',
+        text: 'Bağlantı hatası. Mesaj gönderilemedi; aynı mesajı tekrar deneyebilirsiniz.',
         intent: 'ERROR',
         tools: [],
+        error: true,
+        originalText: msg,
         ts: new Date().toISOString(),
       }]);
+      showToast('Chat servisine ulaşılamadı', 'error');
     }
   }
 
@@ -104,18 +124,15 @@ export default function ChatPage() {
 
   return (
     <div className="chat-wrap page-content" style={{ gap: 0, padding: 0 }}>
-      {/* Header */}
       <div className="chat-header">
         <div className="msg-avatar ai" style={{ width: 32, height: 32 }}>AI</div>
         <div className="chat-header-title">Müşteri Asistanı</div>
         <span className="chip chip-blue">Gemini</span>
-        <span className="chip chip-purple">tool calling</span>
         {lastIntent && (
-          <span className="intent-badge">{lastIntent}</span>
+          <span className="intent-badge">{INTENT_LABELS[lastIntent] || lastIntent}</span>
         )}
       </div>
 
-      {/* Messages */}
       <div className="chat-messages">
         {messages.length === 0 && !pending && (
           <div style={{ textAlign: 'center', color: 'var(--muted)', marginTop: 40 }}>
@@ -130,16 +147,32 @@ export default function ChatPage() {
             <div className={`msg-avatar ${m.role}`}>{m.role === 'ai' ? 'AI' : 'SİZ'}</div>
             <div>
               <div className={`msg-bubble ${m.role}`}>{m.text}</div>
+              {m.error && (
+                <div className="msg-actions">
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => send(m.originalText || lastFailedMessage, { retry: true })}>
+                    Tekrar dene
+                  </button>
+                  <button className="btn btn-ghost btn-sm" type="button" onClick={() => setInput(m.originalText || lastFailedMessage)}>
+                    Mesajı düzenle
+                  </button>
+                </div>
+              )}
               {m.role === 'ai' && (
                 <div className="msg-meta">
-                  {m.intent && <span className="intent-badge">{m.intent}</span>}
-                  {m.tools && m.tools.map(t => (
-                    <span key={t} className="chip chip-purple">{t}</span>
-                  ))}
+                  {m.intent && <span className="intent-badge">{INTENT_LABELS[m.intent] || m.intent}</span>}
                   <span className="msg-time">
                     {m.ts ? new Date(m.ts).toLocaleTimeString('tr', { hour: '2-digit', minute: '2-digit' }) : ''}
                   </span>
-                  {m.dashNote && <div className="dashboard-note-hint">🔔 {m.dashNote}</div>}
+                  {m.dashNote && <div className="dashboard-note-hint">🔔 Dashboard notu eklendi: {m.dashNote}</div>}
+                  {(m.intent || (m.tools && m.tools.length > 0)) && (
+                    <details className="meta-details">
+                      <summary>Teknik detay</summary>
+                      {m.intent && <span className="intent-badge">{m.intent}</span>}
+                      {m.tools && m.tools.map(t => (
+                        <span key={t} className="chip chip-purple">{t}</span>
+                      ))}
+                    </details>
+                  )}
                 </div>
               )}
               {m.role === 'user' && (
@@ -157,7 +190,6 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Quick buttons */}
       <div className="quick-btns">
         {QUICK.map(q => (
           <button key={q} className="quick-btn" onClick={() => send(q)} disabled={pending}>
@@ -166,14 +198,13 @@ export default function ChatPage() {
         ))}
       </div>
 
-      {/* Input bar */}
       <div className="chat-input-bar">
         <input
           className="chat-input"
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKey}
-          placeholder="Sipariş durumu, stok veya günlük özet sorabilirsiniz…"
+          placeholder="Sipariş durumu, stok veya günlük özet sorabilirsiniz..."
           disabled={pending}
         />
         <button className="chat-send" onClick={() => send()} disabled={pending || !input.trim()}>

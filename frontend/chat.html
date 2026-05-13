@@ -30,7 +30,7 @@
       </div>
       <div class="flex items-center gap-2 text-xs">
         <span class="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-cyan-200">Gemini</span>
-        <span class="rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-violet-200">tool calling</span>
+        <span class="rounded-full border border-violet-500/30 bg-violet-500/10 px-3 py-1 text-violet-200">Kullanılan araçlar</span>
       </div>
     </header>
 
@@ -76,7 +76,7 @@
               <span id="intentBadge" class="inline-flex rounded-full bg-slate-800 px-3 py-1 text-slate-300">-</span>
             </div>
             <div>
-              <p class="mb-1 font-mono uppercase tracking-wider text-slate-500">Tool Calls</p>
+              <p class="mb-1 font-mono uppercase tracking-wider text-slate-500">Kullanılan Araçlar</p>
               <div id="toolList" class="flex flex-wrap gap-1"></div>
             </div>
             <div>
@@ -145,6 +145,14 @@
       if (role === 'ai') {
         if (meta.intent) metaEl.appendChild(chip(meta.intent, 'cyan'));
         (meta.tool_calls || []).forEach((tool) => metaEl.appendChild(chip(tool, 'violet')));
+        if (meta.error) {
+          const retry = document.createElement('button');
+          retry.type = 'button';
+          retry.className = 'rounded-md border border-cyan-500/30 px-2 py-1 text-xs text-cyan-100 transition hover:border-cyan-300';
+          retry.textContent = 'Tekrar dene';
+          retry.addEventListener('click', () => send(meta.original_message));
+          metaEl.appendChild(retry);
+        }
       }
 
       els.messages.appendChild(node);
@@ -181,10 +189,12 @@
 
       if (!data) {
         data = {
-          intent: 'GENERAL',
-          reply: 'Demo API bağlantısı kurulamadı. Backend çalıştığında bu ekran POST /api/chat ile cevap alır.',
+          intent: 'ERROR',
+          reply: 'Bağlantı hatası. Backend çalıştığında bu ekran POST /api/chat ile cevap alır; aynı mesajı tekrar deneyebilirsiniz.',
           tool_calls: [],
-          dashboard_note: ''
+          dashboard_note: 'Chat servisi bağlantısı kontrol edilmeli.',
+          error: true,
+          original_message: message
         };
       }
 
